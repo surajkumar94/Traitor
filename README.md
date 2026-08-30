@@ -57,13 +57,13 @@ Roles never leave the host's device. Before each update is sent, `src/game/views
 Push to a **personal** GitHub account. Enterprise-managed accounts serve Pages only to signed-in enterprise members, which puts a login wall between your guests and the QR code.
 
 ```bash
-git remote add origin https://github.com/<your-user>/traitor-game.git
+git remote add origin https://github.com/surajkumar94/Traitor.git
 git push -u origin main
 ```
 
 Then in the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**. That is the only setting, and it is one time. Every later push rebuilds and republishes in about a minute.
 
-Your game lives at `https://<your-user>.github.io/traitor-game/`.
+Your game lives at `https://surajkumar94.github.io/Traitor/`.
 
 Nothing hardcodes your username or repo name. `vite.config.ts` uses `base: './'` and the QR code is generated from `window.location` at runtime, so the same build works under a custom domain, a renamed repo, or any other static host.
 
