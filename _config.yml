@@ -1,0 +1,2 @@
+# This file prevents Jekyll from trying to process the repository
+# The actual site is built and deployed by .github/workflows/deploy.yml
