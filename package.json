@@ -1,0 +1,31 @@
+{
+  "name": "traitor-game",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A QR-join social deduction party game for 4-12 in-person players. No backend.",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host",
+    "typecheck": "tsc --noEmit",
+    "simulate": "tsx scripts/simulate.ts"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.5",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.4.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^6.1.1",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}
