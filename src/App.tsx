@@ -9,6 +9,7 @@ import { Night } from './screens/Night';
 import { Morning } from './screens/Morning';
 import { Day } from './screens/Day';
 import { Vote } from './screens/Vote';
+import { Verdict } from './screens/Verdict';
 import { GameOver } from './screens/GameOver';
 import { Connecting, Problem } from './screens/Connecting';
 
@@ -71,6 +72,8 @@ function screenFor(session: Session): ReactElement {
       return <Day session={session} />;
     case 'vote':
       return <Vote session={session} />;
+    case 'verdict':
+      return <Verdict session={session} />;
     case 'gameover':
       return <GameOver session={session} />;
   }
