@@ -13,13 +13,13 @@ export const EVENT_INFO: Record<EventKind, EventInfo> = {
     kind: 'blackout',
     emoji: '🔦',
     title: 'Blackout',
-    text: 'The lights fail. Tonight the body is found, but nobody learns whose side they were on.',
+    text: 'The lights fail. Someone may be voted out, but nobody learns which side they were on.',
   },
   doubleVoteRound: {
     kind: 'doubleVoteRound',
     emoji: '🗳',
-    title: 'Double Banishment',
-    text: 'The council is ruthless. This round the two players with the most votes are both banished.',
+    title: 'Two Voted Out',
+    text: 'The council is ruthless. This round the two players with the most votes are both voted out.',
   },
   silence: {
     kind: 'silence',
