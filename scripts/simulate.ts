@@ -9,7 +9,6 @@ import { reduce } from '../src/game/engine';
 import type { GameAction, Ctx } from '../src/game/engine';
 import { SKIP, aliveInnocents, alivePlayers, aliveTraitors, initialState } from '../src/game/types';
 import type { GameState } from '../src/game/types';
-import { tierFor } from '../src/game/setup';
 import { viewFor } from '../src/game/views';
 
 const GAMES_PER_SIZE = 400;
@@ -78,16 +77,15 @@ function playOne(size: number, seed: number): void {
 
   // Deal integrity.
   const traitors = state.players.filter((p) => p.role === 'traitor').length;
-  const tier = tierFor(size);
-  const maxTraitors = tier === 'small' ? 1 : tier === 'mid' ? 2 : 3;
-  if (traitors < 1 || traitors > maxTraitors) {
-    fail(size, seed, `dealt ${traitors} traitors for a ${tier} game`);
+  const expectedTraitors = size <= 5 ? 1 : size <= 8 ? 2 : 3;
+  if (traitors !== expectedTraitors) {
+    fail(size, seed, `dealt ${traitors} traitors, expected ${expectedTraitors}`);
   }
   const fakeHolders = state.players.filter((p) => p.item === 'fakeEvidence');
   if (fakeHolders.some((p) => p.role !== 'traitor')) {
     fail(size, seed, 'fake evidence went to an innocent');
   }
-  if (tier === 'small' && fakeHolders.length > 0) {
+  if (size <= 5 && fakeHolders.length > 0) {
     fail(size, seed, 'fake evidence appeared in a 4-5 player game');
   }
   const itemCount = state.players.filter((p) => p.item !== null).length;
