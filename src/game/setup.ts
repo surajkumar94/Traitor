@@ -23,12 +23,11 @@ export function tierFor(playerCount: number): Tier {
   return 'large';
 }
 
-/** 4-5: exactly 1. 6-8: 1 or 2. 9-12: 1 to 3. */
-export function traitorCountFor(playerCount: number, rng: Rng): number {
-  const tier = tierFor(playerCount);
-  if (tier === 'small') return 1;
-  if (tier === 'mid') return 1 + Math.floor(rng() * 2);
-  return 1 + Math.floor(rng() * 3);
+/** 4-5: 1. 6-8: 2. 9-12: 3. Never random — an 8-player table must not roll a lone traitor. */
+export function traitorCountFor(playerCount: number): number {
+  if (playerCount <= 5) return 1;
+  if (playerCount <= 8) return 2;
+  return 3;
 }
 
 const INNOCENT_POOL: Record<Tier, ItemKind[]> = {
@@ -62,7 +61,7 @@ export interface Deal {
  */
 export function dealRoles(seats: readonly Seat[], rng: Rng = Math.random): Deal {
   const tier = tierFor(seats.length);
-  const traitorCount = traitorCountFor(seats.length, rng);
+  const traitorCount = traitorCountFor(seats.length);
   const order = shuffled(seats, rng);
   const traitorIds = new Set(order.slice(0, traitorCount).map((s) => s.id));
 
@@ -111,7 +110,7 @@ export function tierSummary(playerCount: number): {
     return { tier, traitors: '1 traitor', items: '1-2 items in play', events: false };
   }
   if (tier === 'mid') {
-    return { tier, traitors: '1-2 traitors', items: '3 items + fake evidence', events: false };
+    return { tier, traitors: '2 traitors', items: '3 items + fake evidence', events: false };
   }
-  return { tier, traitors: '1-3 traitors', items: '4 items + fake evidence', events: true };
+  return { tier, traitors: '3 traitors', items: '4 items + fake evidence', events: true };
 }
