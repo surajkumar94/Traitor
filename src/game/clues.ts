@@ -1,14 +1,9 @@
 import type { GameState } from './types';
 import { aliveInnocents, aliveTraitors } from './types';
-import { pickOne, shuffled, type Rng } from './setup';
+import { pickOne, type Rng } from './setup';
 
 const letters = (name: string): string[] =>
   Array.from(new Set(name.toLowerCase().replace(/[^a-z]/g, '').split('')));
-
-const list = (names: string[]): string =>
-  names.length <= 1
-    ? (names[0] ?? '')
-    : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
 
 /**
  * Produces one hint that is guaranteed true for the current board. Every
@@ -22,12 +17,6 @@ export function makeClue(state: GameState, holderId: string, rng: Rng = Math.ran
   const target = pickOne(traitors, rng);
   const otherInnocents = aliveInnocents(state).filter((p) => p.id !== holderId);
   const candidates: string[] = [];
-
-  if (otherInnocents.length >= 2) {
-    const pair = shuffled(otherInnocents, rng).slice(0, 2);
-    const trio = shuffled([target, ...pair], rng).map((p) => p.name);
-    candidates.push(`Exactly one of ${list(trio)} is a traitor.`);
-  }
 
   if (otherInnocents.length >= 1) {
     const cleared = pickOne(otherInnocents, rng);

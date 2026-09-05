@@ -14,7 +14,16 @@ export type ItemKind =
   | 'detectiveScan'
   | 'fakeEvidence';
 
-export type Phase = 'lobby' | 'reveal' | 'event' | 'night' | 'morning' | 'day' | 'vote' | 'gameover';
+export type Phase =
+  | 'lobby'
+  | 'reveal'
+  | 'event'
+  | 'night'
+  | 'morning'
+  | 'day'
+  | 'vote'
+  | 'verdict'
+  | 'gameover';
 
 export type EventKind =
   | 'blackout'
@@ -76,6 +85,13 @@ export interface PrivateNote {
 export interface MorningReport {
   victimId: string | null;
   shieldHeld: boolean;
+  /** True when traitors named different victims and nobody died. */
+  split: boolean;
+}
+
+export interface TraitorChatLine {
+  fromId: string;
+  text: string;
 }
 
 export interface VoteReport {
@@ -83,7 +99,7 @@ export interface VoteReport {
   tally: Record<string, number>;
   skipWon: boolean;
   tied: boolean;
-  /** Blackout keeps the banished player's allegiance secret. */
+  /** Blackout keeps the voted-out player's allegiance secret. */
   rolesHidden: boolean;
 }
 
@@ -103,6 +119,8 @@ export interface GameState {
   log: LogEntry[];
   /** player id -> private item results */
   notes: Record<string, PrivateNote[]>;
+  /** Private night channel, traitors only. Cleared each dawn. */
+  traitorChat: TraitorChatLine[];
   phaseEndsAt: number | null;
   morning: MorningReport | null;
   lastVote: VoteReport | null;
@@ -128,6 +146,7 @@ export function initialState(hostId: string): GameState {
     anonMessage: null,
     log: [],
     notes: {},
+    traitorChat: [],
     phaseEndsAt: null,
     morning: null,
     lastVote: null,

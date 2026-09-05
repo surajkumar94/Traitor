@@ -61,8 +61,10 @@ export interface PlayerView {
   fellowTraitors: { id: string; name: string }[];
   /** Your own kill pick, so the night screen can show it back to you. */
   myKillTarget: string | null;
-  /** Other traitors' picks, traitors only. */
-  traitorPicks: { by: string; target: string }[];
+  /** Live kill proposals from the whole traitor team. Traitors only. */
+  traitorIntent: { id: string; name: string; target: string | null }[];
+  /** Private night chat. Traitors only, empty for everyone else. */
+  traitorChat: { fromId: string; from: string; text: string; mine: boolean }[];
   /** True while the night is waiting on you. */
   awaitingYou: boolean;
 
@@ -75,8 +77,8 @@ export interface PlayerView {
   log: LogEntry[];
   notes: PrivateNote[];
 
-  morning: { victimName: string | null; shieldHeld: boolean } | null;
-  lastVote: (VoteReport & { eliminatedNames: string[] }) | null;
+  morning: { victimName: string | null; shieldHeld: boolean; split: boolean } | null;
+  lastVote: (VoteReport & { eliminatedNames: string[]; eliminatedRoles: (Role | null)[] }) | null;
 
   myBallot: string | null;
   myDoubleSpent: boolean;
@@ -119,14 +121,28 @@ export function viewFor(state: GameState, viewerId: string, roomCode: string, no
           .map((p) => ({ id: p.id, name: p.name }))
       : [];
 
-  const traitorPicks =
+  const traitorIntent =
     isTraitor && state.phase === 'night'
-      ? Object.entries(state.night.kill)
-          .filter(([by]) => by !== viewerId)
-          .map(([by, target]) => ({
-            by: findPlayer(state, by)?.name ?? 'A traitor',
-            target: findPlayer(state, target)?.name ?? 'someone',
-          }))
+      ? state.players
+          .filter((p) => p.alive && p.role === 'traitor')
+          .map((p) => {
+            const targetId = state.night.kill[p.id];
+            return {
+              id: p.id,
+              name: p.name,
+              target: targetId ? (findPlayer(state, targetId)?.name ?? null) : null,
+            };
+          })
+      : [];
+
+  const traitorChat =
+    isTraitor && state.phase === 'night'
+      ? state.traitorChat.map((line) => ({
+          fromId: line.fromId,
+          from: findPlayer(state, line.fromId)?.name ?? 'A traitor',
+          text: line.text,
+          mine: line.fromId === viewerId,
+        }))
       : [];
 
   const victimName =
@@ -159,8 +175,9 @@ export function viewFor(state: GameState, viewerId: string, roomCode: string, no
       : null,
 
     fellowTraitors,
-    myKillTarget: state.night.kill[viewerId] ?? null,
-    traitorPicks,
+    myKillTarget: isTraitor ? (state.night.kill[viewerId] ?? null) : null,
+    traitorIntent,
+    traitorChat,
     awaitingYou: state.phase === 'night' && state.night.pending.includes(viewerId),
 
     activeEvent: state.activeEvent,
@@ -171,13 +188,19 @@ export function viewFor(state: GameState, viewerId: string, roomCode: string, no
     log: state.log.slice(-14),
     notes: state.notes[viewerId] ?? [],
 
-    morning: state.morning ? { victimName, shieldHeld: state.morning.shieldHeld } : null,
+    morning: state.morning
+      ? { victimName, shieldHeld: state.morning.shieldHeld, split: state.morning.split }
+      : null,
     lastVote: state.lastVote
       ? {
           ...state.lastVote,
           eliminatedNames: state.lastVote.eliminatedIds.map(
             (id) => findPlayer(state, id)?.name ?? 'Someone',
           ),
+          eliminatedRoles: state.lastVote.eliminatedIds.map((id) => {
+            if (state.lastVote?.rolesHidden) return null;
+            return findPlayer(state, id)?.role ?? null;
+          }),
         }
       : null,
 
