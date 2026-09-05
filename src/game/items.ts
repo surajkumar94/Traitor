@@ -26,16 +26,6 @@ export const ITEMS: Record<ItemKind, ItemInfo> = {
     night: true,
     traitorOnly: false,
   },
-  clue: {
-    kind: 'clue',
-    emoji: '🔍',
-    name: 'Clue',
-    blurb: 'Once, receive a hint about a traitor. It is always true.',
-    prompt: 'Spend your Clue for a true hint about a traitor?',
-    targeted: false,
-    night: true,
-    traitorOnly: false,
-  },
   doubleVote: {
     kind: 'doubleVote',
     emoji: '🎤',

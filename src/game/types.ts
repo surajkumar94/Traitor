@@ -8,7 +8,6 @@ export type Role = 'traitor' | 'innocent';
 
 export type ItemKind =
   | 'shield'
-  | 'clue'
   | 'doubleVote'
   | 'spyCamera'
   | 'detectiveScan'
@@ -55,8 +54,6 @@ export interface NightState {
   scan: Record<string, string>;
   spy: Record<string, string>;
   fake: Record<string, string>;
-  /** ids that spent an untargeted Clue */
-  clue: string[];
   /** ids still expected to tap something before dawn */
   pending: string[];
 }
@@ -128,7 +125,7 @@ export interface GameState {
 }
 
 export function emptyNight(): NightState {
-  return { kill: {}, shield: {}, scan: {}, spy: {}, fake: {}, clue: [], pending: [] };
+  return { kill: {}, shield: {}, scan: {}, spy: {}, fake: {}, pending: [] };
 }
 
 export function initialState(hostId: string): GameState {

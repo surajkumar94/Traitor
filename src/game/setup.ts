@@ -31,9 +31,9 @@ export function traitorCountFor(playerCount: number): number {
 }
 
 const INNOCENT_POOL: Record<Tier, ItemKind[]> = {
-  small: ['shield', 'clue', 'doubleVote', 'spyCamera'],
-  mid: ['shield', 'detectiveScan', 'doubleVote', 'clue', 'spyCamera'],
-  large: ['shield', 'detectiveScan', 'doubleVote', 'clue', 'spyCamera'],
+  small: ['shield', 'doubleVote', 'spyCamera'],
+  mid: ['shield', 'detectiveScan', 'doubleVote', 'spyCamera'],
+  large: ['shield', 'detectiveScan', 'doubleVote', 'spyCamera'],
 };
 
 /** Deliberately few items, so the table stays simple to talk about. */

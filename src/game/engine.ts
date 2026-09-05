@@ -21,7 +21,6 @@ import type {
 } from './types';
 import { dealRoles, pickOne, shuffled, tierFor, type Rng, type Seat } from './setup';
 import { drawEvent } from './events';
-import { makeClue } from './clues';
 import { ITEMS } from './items';
 import { cleanMessage, cleanName } from '../lib/sanitize';
 
@@ -192,11 +191,6 @@ function resolveNight(s: GameState, ctx: Ctx): void {
   const victimId = chooseVictim(s);
   const shielded = new Set(Object.values(s.night.shield));
   const shieldHeld = victimId !== null && shielded.has(victimId);
-
-  // Clues read the board while every traitor is still standing.
-  for (const holderId of s.night.clue) {
-    note(s, holderId, 'clue', makeClue(s, holderId, ctx.rng));
-  }
 
   const framed = new Set(Object.values(s.night.fake));
   for (const [actorId, targetId] of Object.entries(s.night.scan)) {
@@ -535,9 +529,6 @@ export function reduce(state: GameState, action: GameAction, ctx: Ctx): GameStat
               bucket[actor.id] = target.id;
               actor.itemUsed = true;
             }
-          } else if (actor.item === 'clue') {
-            s.night.clue.push(actor.id);
-            actor.itemUsed = true;
           }
         }
       }
