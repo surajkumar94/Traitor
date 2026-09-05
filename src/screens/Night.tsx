@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Shell } from '../components/Shell';
 import { PlayerList } from '../components/PlayerList';
 import { Timer } from '../components/Timer';
 import { EventRibbon } from '../components/EventRibbon';
 import { ITEMS } from '../game/items';
+import { MAX_MESSAGE } from '../lib/sanitize';
 import { usableItemTonight } from '../game/views';
 import type { PlayerView, PublicPlayer } from '../game/views';
 import type { ItemKind } from '../game/types';
@@ -31,6 +32,69 @@ function canTarget(item: ItemKind, player: PublicPlayer, view: PlayerView): bool
   }
 }
 
+function TraitorChat({ session }: { session: Session }) {
+  const view = session.view;
+  const [draft, setDraft] = useState('');
+  if (!view) return null;
+
+  const send = (): void => {
+    const text = draft.trim();
+    if (!text) return;
+    session.send({ t: 'traitorChat', text });
+    setDraft('');
+  };
+
+  return (
+    <section className="panel border-blood/35 p-4">
+      <p className="eyebrow" style={{ color: '#ff9c92' }}>
+        Traitor channel
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-ash">
+        Agree here. Do not speak out loud.
+      </p>
+      <div className="mt-3 flex max-h-36 flex-col gap-2 overflow-y-auto">
+        {view.traitorChat.length === 0 ? (
+          <p className="text-xs text-slate">No messages yet.</p>
+        ) : (
+          view.traitorChat.map((line, index) => (
+            <p
+              key={`${line.fromId}-${index}-${line.text}`}
+              className="text-sm leading-snug text-parchment"
+            >
+              <span className={line.mine ? 'text-blood' : 'text-gold'}>{line.from}</span>
+              <span className="text-ash"> · </span>
+              {line.text}
+            </p>
+          ))
+        )}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          className="field min-w-0 flex-1"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          maxLength={MAX_MESSAGE}
+          placeholder="Who do we kill?"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="shrink-0 self-stretch rounded-[11px] border border-gold/30 px-4 text-xs uppercase tracking-[0.2em] text-gold disabled:opacity-34"
+          disabled={draft.trim().length === 0}
+          onClick={send}
+        >
+          Send
+        </button>
+      </div>
+    </section>
+  );
+}
+
 export function Night({ session }: { session: Session }) {
   const view = session.view;
   const you = view?.you;
@@ -38,11 +102,18 @@ export function Night({ session }: { session: Session }) {
   const [useItem, setUseItem] = useState(false);
   const [itemTarget, setItemTarget] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (view?.myKillTarget) setKillTarget(view.myKillTarget);
+  }, [view?.myKillTarget]);
+
   if (!view || !you) return null;
 
   const item = usableItemTonight(view);
   const info = item ? ITEMS[item] : null;
   const traitor = you.role === 'traitor';
+  const teamSize = view.fellowTraitors.length + (traitor ? 1 : 0);
+  const needsTeam = traitor && teamSize >= 2;
+  const showKillBoard = traitor && you.alive;
 
   if (!you.alive) {
     return (
@@ -60,7 +131,7 @@ export function Night({ session }: { session: Session }) {
     );
   }
 
-  if (!view.awaitingYou) {
+  if (!showKillBoard && !view.awaitingYou) {
     return (
       <Shell eyebrow={`Night ${view.round}`} title="Eyes closed">
         <div className="flex flex-1 flex-col items-center justify-center gap-7 text-center">
@@ -85,24 +156,63 @@ export function Night({ session }: { session: Session }) {
     );
   }
 
-  const readyToConfirm = !traitor || killTarget !== null;
-  const itemNeedsTarget = useItem && info?.targeted === true;
+  const itemNeedsTarget = view.awaitingYou && useItem && info?.targeted === true;
   const itemSatisfied = !itemNeedsTarget || itemTarget !== null;
+  const killSatisfied = !traitor || killTarget !== null;
+  const changingPick = traitor && !view.awaitingYou;
+  const pickChanged = changingPick && killTarget !== view.myKillTarget;
+  const agreedTarget =
+    needsTeam &&
+    view.traitorIntent.length > 0 &&
+    view.traitorIntent.every((row) => row.target && row.target === view.traitorIntent[0]?.target)
+      ? view.traitorIntent[0]!.target
+      : null;
 
   const confirm = (): void => {
     session.send({
       t: 'nightSubmit',
       kill: traitor && killTarget ? killTarget : undefined,
       itemTarget: itemNeedsTarget && itemTarget ? itemTarget : undefined,
-      useItem,
+      useItem: view.awaitingYou && useItem,
     });
   };
 
   return (
-    <Shell eyebrow={`Night ${view.round}`} title={traitor ? 'Choose your victim' : 'Your move'}>
+    <Shell
+      eyebrow={`Night ${view.round}`}
+      title={traitor ? (needsTeam ? 'Agree on a victim' : 'Choose your victim') : 'Your move'}
+    >
       <EventRibbon event={view.activeEvent} />
       <div className="flex flex-col gap-6">
-        <Timer endsAt={view.phaseEndsAt} serverNow={view.serverNow} label="Dawn in" />
+        <Timer
+          endsAt={view.phaseEndsAt}
+          serverNow={view.serverNow}
+          label={traitor ? 'Kill in' : 'Dawn in'}
+        />
+
+        {needsTeam && <TraitorChat session={session} />}
+
+        {needsTeam && (
+          <section className="panel-inset border-blood/25 p-4">
+            <p className="eyebrow mb-2" style={{ color: '#ff9c92' }}>
+              Current picks
+            </p>
+            <ul className="flex flex-col gap-1.5 text-sm text-parchment">
+              {view.traitorIntent.map((row) => (
+                <li key={row.id}>
+                  <span className={row.id === you.id ? 'text-blood' : ''}>{row.name}</span>
+                  <span className="text-ash"> → </span>
+                  {row.target ?? <span className="text-slate">not yet</span>}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs leading-relaxed text-ash">
+              {agreedTarget
+                ? `You agree: ${agreedTarget} dies. Dawn comes once everyone has acted.`
+                : 'Night ends when you all pick the same person, or when the minute is up. A split team kills nobody.'}
+            </p>
+          </section>
+        )}
 
         {traitor && (
           <section>
@@ -123,15 +233,10 @@ export function Night({ session }: { session: Session }) {
                 ) : null
               }
             />
-            {view.traitorPicks.length > 0 && (
-              <p className="mt-3 text-xs leading-relaxed text-ash">
-                {view.traitorPicks.map((p) => `${p.by} picked ${p.target}`).join(' · ')}
-              </p>
-            )}
           </section>
         )}
 
-        {info && item && (
+        {view.awaitingYou && info && item && (
           <section className="panel p-5">
             <div className="flex items-center gap-2">
               <span className="text-xl" aria-hidden>
@@ -183,15 +288,35 @@ export function Night({ session }: { session: Session }) {
       <button
         type="button"
         className="btn btn-primary mt-6"
-        disabled={!readyToConfirm || !itemSatisfied}
+        disabled={
+          changingPick
+            ? !pickChanged || !killSatisfied
+            : !killSatisfied || !itemSatisfied
+        }
         onClick={confirm}
       >
-        {traitor && killTarget === null
-          ? 'Pick a victim first'
-          : itemNeedsTarget && itemTarget === null
-            ? 'Pick a target first'
-            : 'Confirm and sleep'}
+        {changingPick
+          ? pickChanged
+            ? 'Change my pick'
+            : 'Waiting for the others'
+          : traitor && killTarget === null
+            ? 'Pick a victim first'
+            : itemNeedsTarget && itemTarget === null
+              ? 'Pick a target first'
+              : needsTeam
+                ? 'Lock in this pick'
+                : 'Confirm and sleep'}
       </button>
+
+      {you.isHost && (
+        <button
+          type="button"
+          className="btn btn-ghost mt-3"
+          onClick={() => session.send({ t: 'advance' })}
+        >
+          Force dawn
+        </button>
+      )}
     </Shell>
   );
 }

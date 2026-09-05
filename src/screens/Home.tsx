@@ -111,12 +111,12 @@ export function Home({ session }: { session: Session }) {
               </p>
               <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-4">
                 <li>Break your wax seal to learn if you are a traitor.</li>
-                <li>At night the traitors pick someone to murder.</li>
+                <li>At night the traitors agree on someone to murder.</li>
                 <li>At dawn you find out who died, then argue about it.</li>
-                <li>Vote to banish one person. Their side is revealed.</li>
+                <li>Vote to send one person out. Their side is revealed.</li>
               </ol>
               <p className="mt-3">
-                Innocents win by banishing every traitor. Traitors win once they match the number of
+                Innocents win by voting out every traitor. Traitors win once they match the number of
                 innocents left.
               </p>
             </div>

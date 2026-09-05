@@ -41,7 +41,7 @@ export function RoleReveal({ session }: { session: Session }) {
           <p className="mx-auto mt-4 max-w-[17rem] text-sm leading-relaxed text-ash">
             {traitor
               ? 'Murder by night. Blend in by day. You win when the traitors match the number of innocents left.'
-              : 'Find the traitors and banish every one of them. Trust carefully.'}
+              : 'Find the traitors and vote out every one of them. Trust carefully.'}
           </p>
         </div>
 
@@ -54,7 +54,7 @@ export function RoleReveal({ session }: { session: Session }) {
               {view.fellowTraitors.map((t) => t.name).join(', ')}
             </p>
             <p className="mt-2 text-xs text-ash">
-              Agree on a victim each night. If you disagree, the most-picked name dies.
+              Talk on your phones at night. You cannot speak out loud. You must agree on one victim.
             </p>
           </div>
         )}

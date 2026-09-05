@@ -61,7 +61,7 @@ export function Vote({ session }: { session: Session }) {
   return (
     <Shell
       eyebrow={`Round ${view.round}`}
-      title={doubleRound ? 'Banish two' : 'Who is the traitor?'}
+      title={doubleRound ? 'Vote two out' : 'Who is the traitor?'}
     >
       <EventRibbon event={view.activeEvent} />
       <div className="flex flex-col gap-5">
@@ -74,7 +74,7 @@ export function Vote({ session }: { session: Session }) {
 
         {doubleRound && (
           <p className="panel-inset border-gold/30 p-4 text-sm leading-relaxed text-parchment">
-            Tonight the two most-voted players are both banished. Choose carefully.
+            Tonight the two most-voted players are both voted out. Choose carefully.
           </p>
         )}
 
@@ -96,7 +96,7 @@ export function Vote({ session }: { session: Session }) {
           onClick={() => setChoice(SKIP)}
           className={`chip justify-center ${choice === SKIP ? 'chip-selected' : ''}`}
         >
-          <span className="display text-xs tracking-widest text-ash">Banish nobody</span>
+          <span className="display text-xs tracking-widest text-ash">Vote nobody out</span>
         </button>
 
         {hasDoubleVote && (
