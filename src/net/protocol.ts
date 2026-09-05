@@ -14,6 +14,7 @@ export type ClientMessage =
   | { t: 'hello'; playerId: string; secret: string; name: string }
   | { t: 'ready' }
   | { t: 'nightSubmit'; kill?: string; itemTarget?: string; useItem: boolean }
+  | { t: 'traitorChat'; text: string }
   | { t: 'ballot'; target: string | typeof SKIP; double: boolean }
   | { t: 'anon'; text: string }
   | { t: 'rename'; name: string }

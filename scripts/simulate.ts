@@ -157,6 +157,9 @@ function playOne(size: number, seed: number): void {
         if (state.phase === 'vote') state = apply(state, { t: 'advance' });
         break;
       }
+      case 'verdict':
+        state = apply(state, { t: 'advance' });
+        break;
       case 'lobby':
         fail(size, seed, 'fell back to the lobby mid-game');
         return;
@@ -190,6 +193,9 @@ function playOne(size: number, seed: number): void {
     }
     if (view.myKillTarget !== null && viewer.role !== 'traitor') {
       fail(size, seed, 'an innocent saw a kill order');
+    }
+    if (viewer.role === 'innocent' && (view.traitorChat.length > 0 || view.traitorIntent.length > 0)) {
+      fail(size, seed, 'an innocent saw the traitor channel');
     }
   }
 

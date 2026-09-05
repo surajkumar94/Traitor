@@ -27,11 +27,12 @@ import { cleanMessage, cleanName } from '../lib/sanitize';
 
 export const DURATION = {
   event: 8_000,
-  night: 80_000,
+  night: 60_000,
   morning: 18_000,
   silence: 30_000,
   vote: 35_000,
   fastVote: 10_000,
+  verdict: 12_000,
 } as const;
 
 export function discussionMs(aliveCount: number): number {
@@ -53,6 +54,7 @@ export type GameAction =
   | { t: 'start' }
   | { t: 'ready'; id: string }
   | { t: 'nightSubmit'; id: string; kill?: string; itemTarget?: string; useItem: boolean }
+  | { t: 'traitorChat'; id: string; text: string }
   | { t: 'ballot'; id: string; target: string; double: boolean }
   | { t: 'anon'; id: string; text: string }
   | { t: 'advance' }
@@ -88,6 +90,7 @@ function beginNight(s: GameState, ctx: Ctx): void {
   s.phase = 'night';
   s.night = emptyNight();
   s.night.pending = nightPending(s);
+  s.traitorChat = [];
   s.morning = null;
   s.phaseEndsAt = ctx.now + DURATION.night;
 }
@@ -112,14 +115,30 @@ function beginRound(s: GameState, ctx: Ctx): void {
   beginNight(s, ctx);
 }
 
-/** Traitors who slept through the timer still strike, so the game cannot stall. */
+/**
+ * Traitors who never picked still strike so the game cannot stall.
+ * Quiet seats copy the team's most common pick; if nobody picked, they share one random victim.
+ */
 function fillMissingKills(s: GameState, ctx: Ctx): void {
+  const traitors = aliveTraitors(s);
   const targets = aliveInnocents(s);
-  if (targets.length === 0) return;
-  for (const traitor of aliveTraitors(s)) {
-    if (!s.night.kill[traitor.id]) {
-      s.night.kill[traitor.id] = pickOne(targets, ctx.rng).id;
-    }
+  if (traitors.length === 0 || targets.length === 0) return;
+
+  const existing = traitors
+    .map((t) => s.night.kill[t.id])
+    .filter((id): id is string => Boolean(id));
+
+  let fill: string;
+  if (existing.length > 0) {
+    const counts = new Map<string, number>();
+    for (const id of existing) counts.set(id, (counts.get(id) ?? 0) + 1);
+    fill = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]![0];
+  } else {
+    fill = pickOne(targets, ctx.rng).id;
+  }
+
+  for (const traitor of traitors) {
+    if (!s.night.kill[traitor.id]) s.night.kill[traitor.id] = fill;
   }
 }
 
@@ -130,25 +149,34 @@ interface Visit {
 
 function chooseVictim(s: GameState): string | null {
   const counts = new Map<string, number>();
-  const firstSeen = new Map<string, number>();
-  Object.values(s.night.kill).forEach((target, index) => {
+  for (const target of Object.values(s.night.kill)) {
     counts.set(target, (counts.get(target) ?? 0) + 1);
-    if (!firstSeen.has(target)) firstSeen.set(target, index);
-  });
+  }
 
   let victim: string | null = null;
   let best = -1;
-  let bestOrder = Number.MAX_SAFE_INTEGER;
+  let tied = false;
   for (const [target, count] of counts) {
-    const order = firstSeen.get(target) ?? 0;
-    // Most votes wins; the earliest submitted pick breaks a tie.
-    if (count > best || (count === best && order < bestOrder)) {
+    if (count > best) {
       victim = target;
       best = count;
-      bestOrder = order;
+      tied = false;
+    } else if (count === best) {
+      tied = true;
     }
   }
-  return victim;
+  // A split team kills nobody. They have a private channel; they must agree.
+  return tied ? null : victim;
+}
+
+/** Night ends early only when every actor has moved and the traitors share one victim. */
+function nightReady(s: GameState): boolean {
+  if (s.night.pending.length > 0) return false;
+  const traitors = aliveTraitors(s);
+  if (traitors.length === 0) return true;
+  const picks = traitors.map((t) => s.night.kill[t.id]);
+  if (picks.some((id) => !id)) return false;
+  return picks.every((id) => id === picks[0]);
 }
 
 function resolveNight(s: GameState, ctx: Ctx): void {
@@ -201,11 +229,17 @@ function resolveNight(s: GameState, ctx: Ctx): void {
     }
   } else if (victimId !== null && shieldHeld) {
     log(s, 'A shield held. The traitors struck and found nothing.', 'save');
+  } else if (new Set(Object.values(s.night.kill)).size > 1) {
+    log(s, 'The traitors could not agree. Nobody was attacked.', 'info');
   } else {
     log(s, 'The night passed quietly. Nobody was attacked.', 'info');
   }
 
-  s.morning = { victimId, shieldHeld };
+  s.morning = {
+    victimId,
+    shieldHeld,
+    split: victimId === null && new Set(Object.values(s.night.kill)).size > 1,
+  };
   s.phase = 'morning';
   s.phaseEndsAt = ctx.now + DURATION.morning;
 
@@ -243,16 +277,27 @@ function beginVote(s: GameState, ctx: Ctx): void {
     ctx.now + (s.activeEvent === 'fastVote' ? DURATION.fastVote : DURATION.vote);
 }
 
-function banish(s: GameState, id: string, rolesHidden: boolean): void {
+function voteOut(s: GameState, id: string, rolesHidden: boolean): void {
   const player = findPlayer(s, id);
   if (!player) return;
   player.alive = false;
-  const verdict = rolesHidden
-    ? 'In the dark, nobody sees which side they were on.'
-    : player.role === 'traitor'
-      ? 'They were a TRAITOR.'
-      : 'They were INNOCENT.';
-  log(s, `${player.name} was banished. ${verdict}`, 'vote');
+  if (rolesHidden) {
+    log(
+      s,
+      `${player.name} is voted out in discussion. In the dark, nobody sees which side they were on.`,
+      'vote',
+    );
+    return;
+  }
+  if (player.role === 'traitor') {
+    log(s, `${player.name} is voted out in discussion. They are the traitor.`, 'vote');
+    return;
+  }
+  log(
+    s,
+    `${player.name} is voted out in discussion. They are innocent. You people missed the shot.`,
+    'vote',
+  );
 }
 
 function resolveVote(s: GameState, ctx: Ctx): void {
@@ -268,7 +313,7 @@ function resolveVote(s: GameState, ctx: Ctx): void {
     .sort((a, b) => b[1] - a[1]);
 
   const rolesHidden = s.activeEvent === 'blackout';
-  const doubleBanishment = s.activeEvent === 'doubleVoteRound';
+  const doubleVoteOut = s.activeEvent === 'doubleVoteRound';
   const report: VoteReport = {
     eliminatedIds: [],
     tally,
@@ -281,27 +326,25 @@ function resolveVote(s: GameState, ctx: Ctx): void {
   const second = ranked[1];
 
   if (!top) {
-    log(s, 'Not a single vote was cast. Nobody is banished.', 'info');
+    log(s, 'Not a single vote was cast. Nobody is voted out.', 'info');
   } else if (second && second[1] === top[1]) {
     report.tied = true;
-    log(s, 'The vote is deadlocked. Nobody is banished tonight.', 'info');
+    log(s, 'The vote is deadlocked. Nobody is voted out.', 'info');
   } else if (top[1] <= skipCount) {
     report.skipWon = true;
-    log(s, 'The table chose mercy. Nobody is banished.', 'info');
+    log(s, 'The table chose mercy. Nobody is voted out.', 'info');
   } else {
     report.eliminatedIds.push(top[0]);
-    if (doubleBanishment && second && (!ranked[2] || ranked[2][1] !== second[1])) {
+    if (doubleVoteOut && second && (!ranked[2] || ranked[2][1] !== second[1])) {
       report.eliminatedIds.push(second[0]);
     }
-    for (const id of report.eliminatedIds) banish(s, id, rolesHidden);
+    for (const id of report.eliminatedIds) voteOut(s, id, rolesHidden);
   }
 
   s.lastVote = report;
 
-  if (checkWin(s)) return;
-
-  s.round += 1;
-  beginRound(s, ctx);
+  s.phase = 'verdict';
+  s.phaseEndsAt = ctx.now + DURATION.verdict;
 }
 
 function checkWin(s: GameState): boolean {
@@ -352,6 +395,11 @@ function advance(s: GameState, ctx: Ctx): void {
       return;
     case 'vote':
       resolveVote(s, ctx);
+      return;
+    case 'verdict':
+      if (checkWin(s)) return;
+      s.round += 1;
+      beginRound(s, ctx);
       return;
     case 'lobby':
     case 'gameover':
@@ -436,15 +484,10 @@ export function reduce(state: GameState, action: GameAction, ctx: Ctx): GameStat
       s.phaseEndsAt = null;
       s.log = [];
       s.notes = {};
+      s.traitorChat = [];
       s.eventHistory = [];
       s.winner = null;
-      log(
-        s,
-        `${deal.players.length} gather at the table. ${
-          deal.traitorCount === 1 ? 'One of them is a traitor.' : `${deal.traitorCount} of them are traitors.`
-        }`,
-        'info',
-      );
+      log(s, `${deal.players.length} gather at the table. Trust no one.`, 'info');
       return s;
     }
 
@@ -461,16 +504,21 @@ export function reduce(state: GameState, action: GameAction, ctx: Ctx): GameStat
       if (s.phase !== 'night') return state;
       const actor = findPlayer(s, action.id);
       if (!actor || !actor.alive) return state;
-      if (!s.night.pending.includes(actor.id)) return state;
+
+      const inPending = s.night.pending.includes(actor.id);
+      const traitorRetarget = actor.role === 'traitor';
+      if (!inPending && !traitorRetarget) return state;
 
       if (actor.role === 'traitor') {
         const target = action.kill ? findPlayer(s, action.kill) : undefined;
-        // A traitor must name a living non-traitor before dawn.
-        if (!target || !target.alive || target.role === 'traitor') return state;
-        s.night.kill[actor.id] = target.id;
+        if (!target || !target.alive || target.role === 'traitor') {
+          if (inPending) return state;
+        } else {
+          s.night.kill[actor.id] = target.id;
+        }
       }
 
-      if (action.useItem && actor.item && !actor.itemUsed) {
+      if (inPending && action.useItem && actor.item && !actor.itemUsed) {
         const info = ITEMS[actor.item];
         if (info.night && (!info.traitorOnly || actor.role === 'traitor')) {
           if (info.targeted) {
@@ -494,8 +542,22 @@ export function reduce(state: GameState, action: GameAction, ctx: Ctx): GameStat
         }
       }
 
-      s.night.pending = s.night.pending.filter((id) => id !== actor.id);
-      if (s.night.pending.length === 0) advance(s, ctx);
+      if (inPending) {
+        s.night.pending = s.night.pending.filter((id) => id !== actor.id);
+      }
+      if (nightReady(s)) advance(s, ctx);
+      return s;
+    }
+
+    case 'traitorChat': {
+      if (s.phase !== 'night') return state;
+      const actor = findPlayer(s, action.id);
+      if (!actor || !actor.alive || actor.role !== 'traitor') return state;
+      if (aliveTraitors(s).length < 2) return state;
+      const text = cleanMessage(action.text);
+      if (!text) return state;
+      s.traitorChat.push({ fromId: actor.id, text });
+      if (s.traitorChat.length > 30) s.traitorChat.shift();
       return s;
     }
 

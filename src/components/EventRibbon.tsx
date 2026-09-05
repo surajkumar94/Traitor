@@ -18,8 +18,8 @@ export function EventRibbon({ event }: { event: EventKind | null }) {
 }
 
 const SHORT: Record<EventKind, string> = {
-  blackout: 'banished side stays secret',
-  doubleVoteRound: 'two are banished',
+  blackout: 'voted-out side stays secret',
+  doubleVoteRound: 'two are voted out',
   silence: '30s of silence first',
   fastVote: '10 seconds to vote',
   anonymousMessage: 'one unsigned letter',

@@ -156,6 +156,13 @@ export function useHost(displayName: string, enabled: boolean): HostSession {
             useItem: message.useItem === true,
           });
           break;
+        case 'traitorChat':
+          dispatch({
+            t: 'traitorChat',
+            id: playerId,
+            text: String(message.text ?? ''),
+          });
+          break;
         case 'ballot':
           dispatch({
             t: 'ballot',

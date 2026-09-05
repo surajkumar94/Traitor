@@ -38,7 +38,9 @@ export function Morning({ session }: { session: Session }) {
               ? 'The traitors struck and found the way barred. Everyone lived.'
               : report?.victimName
                 ? 'Found in the morning. The traitors are still among you.'
-                : 'The traitors held their hand. Nobody was attacked.'}
+                : report?.split
+                  ? 'The traitors could not agree. Nobody was attacked.'
+                  : 'The traitors held their hand. Nobody was attacked.'}
           </p>
         </div>
 
